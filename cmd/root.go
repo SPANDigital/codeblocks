@@ -149,7 +149,7 @@ func init() {
 	if err := viper.BindPFlag("extension", rootCmd.Flags().Lookup("extension")); err != nil {
 		log.Fatal("Unable to bind flag extension", err)
 	}
-	rootCmd.Flags().StringP("filename-prefix", "f", "", "Filename prefix")
+	rootCmd.Flags().StringP("filename-prefix", "f", "", "Filename prefix (defaults to sourcecode)")
 	if err := viper.BindPFlag("filename-prefix", rootCmd.Flags().Lookup("filename-prefix")); err != nil {
 		log.Fatal("Unable to bind filename-prefix", err)
 	}
