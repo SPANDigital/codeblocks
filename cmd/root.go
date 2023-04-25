@@ -23,7 +23,14 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/spandigitial/codeblocks/model"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
+	"io"
+	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -34,16 +41,84 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "codeblocks",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Extract fenced code blocks from markdown",
+	Long:  `Extracts fenced code blcoks from markdown`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		input := viper.GetString("input")
+		var source []byte
+		var err error
+		if input == "" {
+			source, err = io.ReadAll(os.Stdin)
+		} else {
+			source, err = os.ReadFile(input)
+		}
+		if err != nil {
+			return err
+		}
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+		extension := viper.GetString("extension")
+		if extension == "" {
+			extension = "txt"
+		}
+		filenamePrefix := viper.GetString("filename-prefix")
+		if filenamePrefix == "" {
+			filenamePrefix = "sourcecode"
+		}
+
+		outputDirectory := viper.GetString("output-directory")
+		if outputDirectory == "" {
+			outputDirectory, err = os.Getwd()
+			if err != nil {
+				return err
+			}
+		}
+
+		node := goldmark.DefaultParser().Parse(text.NewReader(source))
+		var codeBlocks []model.FencedCodeBlock
+		ast.Walk(node, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+			if node.Kind() == ast.KindFencedCodeBlock {
+				var language string
+				var content string
+
+				fcb := node.(*ast.FencedCodeBlock)
+				if !entering && fcb.Info != nil {
+					segment := fcb.Info.Segment
+					language = string(source[segment.Start:segment.Stop])
+					var sb strings.Builder
+					lines := fcb.BaseBlock.Lines()
+					l := lines.Len()
+					for i := 0; i < l; i++ {
+						line := lines.At(i)
+						sb.Write(line.Value(source))
+					}
+					content = sb.String()
+					if language != "" && content != "" {
+						codeBlocks = append(codeBlocks, model.FencedCodeBlock{
+							Language: language,
+							Content:  content,
+						})
+					}
+				}
+
+			}
+
+			return ast.WalkContinue, nil
+		})
+
+		l := len(codeBlocks)
+		for i, codeBlock := range codeBlocks {
+			sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
+				if l == 0 {
+					return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
+				} else {
+					return fmt.Sprintf("%s.%s", filenamePrefix, i, extension)
+				}
+			})
+			sourceCode.Save(outputDirectory)
+		}
+
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -66,7 +141,20 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().StringP("input", "i", "", "Input (defaults to stdin)")
+	if err := viper.BindPFlag("input", rootCmd.Flags().Lookup("input")); err != nil {
+		log.Fatal("Unable to bind flag input", err)
+	}
+	rootCmd.Flags().StringP("extension", "e", "", "Extension (defaults to txt)")
+	if err := viper.BindPFlag("extension", rootCmd.Flags().Lookup("extension")); err != nil {
+		log.Fatal("Unable to bind flag extension", err)
+	}
+	rootCmd.Flags().StringP("filename-prefix", "fp", "", "Filename prefix")
+	if err := viper.BindPFlag("filename-prefix", rootCmd.Flags().Lookup("filenamePrefix")); err != nil {
+		log.Fatal("Unable to bind filename=prefix", err)
+	}
+	rootCmd.Flags().StringP("output-drectory", "od", "", "Output directory (defaults to current working director)")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
