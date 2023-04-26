@@ -45,7 +45,7 @@ brews:
     #
     # Default: ProjectName
     # Templates: allowed
-    name: codeassistant
+    name: codeblocks
 
     # IDs of the archives to use.
     # Empty means all IDs.
