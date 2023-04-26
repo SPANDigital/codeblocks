@@ -42,7 +42,7 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "codeblocks",
 	Short: "Extract fenced code blocks from markdown",
-	Long:  `Extracts fenced code blcoks from markdown`,
+	Long:  `Extracts fenced code blocks from markdown`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		input := viper.GetString("input")
 		var source []byte
