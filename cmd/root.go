@@ -111,7 +111,7 @@ var rootCmd = &cobra.Command{
 				if l == 0 {
 					return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
 				} else {
-					return fmt.Sprintf("%s.%s", filenamePrefix, i, extension)
+					return fmt.Sprintf("%s.%s", filenamePrefix, extension)
 				}
 			})
 			sourceCode.Save(outputDirectory)
