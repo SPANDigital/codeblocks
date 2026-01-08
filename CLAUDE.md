@@ -74,7 +74,3 @@ Releases are automated via GitHub Actions:
 - `github.com/yuin/goldmark` - Markdown parsing (AST-based)
 - `github.com/spf13/cobra` - CLI framework
 - `github.com/spf13/viper` - Configuration management
-
-## Known Issues
-
-- [Issue #5](https://github.com/SPANDigital/codeblocks/issues/5) - Typo in `output-directory` flag and missing viper binding (cmd/root.go:156)
