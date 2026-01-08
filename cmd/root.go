@@ -153,7 +153,10 @@ func init() {
 	if err := viper.BindPFlag("filename-prefix", rootCmd.Flags().Lookup("filename-prefix")); err != nil {
 		log.Fatal("Unable to bind filename-prefix", err)
 	}
-	rootCmd.Flags().StringP("output-drectory", "o", "", "Output directory (defaults to current working director)")
+	rootCmd.Flags().StringP("output-directory", "o", "", "Output directory (defaults to current working directory)")
+	if err := viper.BindPFlag("output-directory", rootCmd.Flags().Lookup("output-directory")); err != nil {
+		log.Fatal("Unable to bind flag output-directory", err)
+	}
 
 }
 
