@@ -4,6 +4,7 @@ A command-line tool to extract fenced code blocks from markdown files and save t
 
 ## Features
 
+- **Automatic extension detection** - Files get appropriate extensions based on code language (Go → `.go`, Python → `.py`, etc.)
 - Extract code blocks from markdown files or stdin
 - Preserve language information from fenced code blocks
 - Customize output filenames and extensions
@@ -83,12 +84,92 @@ for file in docs/*.md; do
 done
 ```
 
+## Language-Based File Extensions
+
+By default, `codeblocks` automatically detects the programming language from fenced code blocks and uses the appropriate file extension. This means your extracted code files will have the correct extension for their language, making them immediately usable.
+
+### Automatic Detection
+
+**Input markdown** (`example.md`):
+````markdown
+```go
+package main
+func main() { println("Hello from Go!") }
+```
+
+```python
+def greet():
+    print("Hello from Python!")
+```
+
+```javascript
+function greet() {
+    console.log("Hello from JavaScript!");
+}
+```
+````
+
+**Extract with auto-detected extensions:**
+```bash
+$ codeblocks -i example.md
+Saving file: sourcecode-0.go in /current/directory
+Saving file: sourcecode-1.py in /current/directory
+Saving file: sourcecode-2.js in /current/directory
+```
+
+### Supported Languages
+
+The tool automatically recognizes 40+ programming languages and data formats:
+
+- **Compiled languages:** Go (`.go`), Rust (`.rs`), C (`.c`), C++ (`.cpp`), Java (`.java`), Kotlin (`.kt`), Swift (`.swift`)
+- **Scripting languages:** Python (`.py`), Ruby (`.rb`), Perl (`.pl`), PHP (`.php`), Lua (`.lua`)
+- **Web technologies:** JavaScript (`.js`), TypeScript (`.ts`), HTML (`.html`), CSS (`.css`), JSX (`.jsx`), TSX (`.tsx`)
+- **Shell scripts:** Bash/Shell (`.sh`), Fish (`.fish`), PowerShell (`.ps1`)
+- **Data formats:** JSON (`.json`), YAML (`.yaml`), TOML (`.toml`), XML (`.xml`)
+- **Markup:** Markdown (`.md`), LaTeX (`.tex`)
+- **Database:** SQL (`.sql`)
+- **Other:** Dockerfile, Makefile, and more...
+
+### Override Auto-Detection
+
+If you need all files to have the same extension, use the `--extension` flag to override auto-detection:
+
+```bash
+# Force all code blocks to use .txt extension
+$ codeblocks -i example.md --extension txt
+Saving file: sourcecode-0.txt
+Saving file: sourcecode-1.txt
+Saving file: sourcecode-2.txt
+```
+
+This is useful when:
+- You want uniform extensions regardless of language
+- You're extracting code snippets for documentation
+- You need compatibility with systems that expect specific extensions
+
+### Unknown Languages
+
+Code blocks with unknown or missing language identifiers automatically fallback to `.txt`:
+
+**Input markdown** (`example.md`):
+````markdown
+```unknownlang
+some code in an unrecognized language
+```
+````
+
+**Output:**
+```bash
+$ codeblocks -i example.md
+Saving file: sourcecode.txt
+```
+
 ## Command-Line Flags
 
 | Flag | Short | Description | Default |
 |------|-------|-------------|---------|
 | `--input` | `-i` | Input markdown file | stdin |
-| `--extension` | `-e` | File extension for output files | `txt` |
+| `--extension` | `-e` | File extension for output files (overrides auto-detection) | Auto-detected from language |
 | `--filename-prefix` | `-f` | Prefix for output filenames | `sourcecode` |
 | `--output-directory` | `-o` | Output directory | Current directory |
 | `--config` | | Config file path | `$HOME/.codeblocks.yaml` |
@@ -144,9 +225,9 @@ def hello():
 codeblocks -i tutorial.md -f example
 ```
 
-**Output:**
-- `example-0.txt` (contains the Go code)
-- `example-1.txt` (contains the Python code)
+**Output (with automatic extension detection):**
+- `example-0.go` (contains the Go code)
+- `example-1.py` (contains the Python code)
 
 ## Development
 
