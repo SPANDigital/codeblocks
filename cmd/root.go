@@ -108,10 +108,10 @@ var rootCmd = &cobra.Command{
 		l := len(codeBlocks)
 		for i, codeBlock := range codeBlocks {
 			sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
-				if l == 0 {
-					return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
-				} else {
+				if l == 1 {
 					return fmt.Sprintf("%s.%s", filenamePrefix, extension)
+				} else {
+					return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
 				}
 			})
 			sourceCode.Save(outputDirectory)
