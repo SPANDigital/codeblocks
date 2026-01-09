@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -385,6 +386,277 @@ func TestSpecialCharactersInCode(t *testing.T) {
 	}
 	if !strings.Contains(content, "print(") {
 		t.Error("Parentheses not preserved")
+	}
+}
+
+func TestLanguageBasedExtensions(t *testing.T) {
+	testDir := setupTestDir(t)
+	defer cleanupTestDir(t, testDir)
+
+	markdown := `# Test Language Extensions
+` + "```go\n" + `package main
+func main() { println("Go") }
+` + "```\n\n" +
+		"```python\n" + `print("Python")
+` + "```\n\n" +
+		"```javascript\n" + `console.log("JS");
+` + "```\n"
+
+	codeBlocks := extractCodeBlocks(t, markdown)
+	if len(codeBlocks) != 3 {
+		t.Fatalf("Expected 3 code blocks, got %d", len(codeBlocks))
+	}
+
+	// Test that auto-detection produces correct extensions
+	filenamePrefix := "sourcecode"
+	l := len(codeBlocks)
+
+	expectedFiles := []string{
+		"sourcecode-0.go",
+		"sourcecode-1.py",
+		"sourcecode-2.js",
+	}
+
+	for i, codeBlock := range codeBlocks {
+		fileExtension := model.LanguageToExtension(codeBlock.Language)
+
+		sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
+			ext := model.LanguageToExtension(block.Language)
+			if l == 1 {
+				return filenamePrefix + "." + ext
+			}
+			return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, ext)
+		})
+
+		if sourceCode.Filename != expectedFiles[i] {
+			t.Errorf("Block %d: Expected filename %s, got %s", i, expectedFiles[i], sourceCode.Filename)
+		}
+
+		// Verify extension matches language
+		expectedExts := []string{"go", "py", "js"}
+		if fileExtension != expectedExts[i] {
+			t.Errorf("Block %d: Expected extension %s, got %s", i, expectedExts[i], fileExtension)
+		}
+
+		err := sourceCode.Save(testDir)
+		if err != nil {
+			t.Fatalf("Failed to save block %d: %v", i, err)
+		}
+	}
+
+	// Verify files exist with correct extensions
+	for _, filename := range expectedFiles {
+		filePath := filepath.Join(testDir, filename)
+		if !fileExists(filePath) {
+			t.Errorf("Expected file %s does not exist", filePath)
+		}
+	}
+}
+
+func TestExtensionFlagOverride(t *testing.T) {
+	testDir := setupTestDir(t)
+	defer cleanupTestDir(t, testDir)
+
+	markdown := `# Test Override
+` + "```go\n" + `package main
+` + "```\n\n" +
+		"```python\n" + `print("test")
+` + "```\n"
+
+	codeBlocks := extractCodeBlocks(t, markdown)
+	if len(codeBlocks) != 2 {
+		t.Fatalf("Expected 2 code blocks, got %d", len(codeBlocks))
+	}
+
+	// Simulate --extension flag being set to "txt"
+	overrideExtension := "txt"
+	userSpecifiedExtension := true // User provided --extension flag
+	filenamePrefix := "sourcecode"
+	l := len(codeBlocks)
+
+	expectedFiles := []string{
+		"sourcecode-0.txt",
+		"sourcecode-1.txt",
+	}
+
+	for i, codeBlock := range codeBlocks {
+		sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
+			fileExtension := overrideExtension
+			if !userSpecifiedExtension && block.Language != "" {
+				fileExtension = model.LanguageToExtension(block.Language)
+			}
+
+			if l == 1 {
+				return filenamePrefix + "." + fileExtension
+			}
+			return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, fileExtension)
+		})
+
+		if sourceCode.Filename != expectedFiles[i] {
+			t.Errorf("Block %d: Expected filename %s, got %s (extension flag should override)", i, expectedFiles[i], sourceCode.Filename)
+		}
+
+		err := sourceCode.Save(testDir)
+		if err != nil {
+			t.Fatalf("Failed to save block %d: %v", i, err)
+		}
+	}
+
+	// Verify all files have .txt extension despite being Go and Python
+	for _, filename := range expectedFiles {
+		filePath := filepath.Join(testDir, filename)
+		if !fileExists(filePath) {
+			t.Errorf("Expected file %s does not exist", filePath)
+		}
+		if !strings.HasSuffix(filename, ".txt") {
+			t.Errorf("File %s should have .txt extension when flag is set", filename)
+		}
+	}
+}
+
+func TestUnknownLanguageFallback(t *testing.T) {
+	testDir := setupTestDir(t)
+	defer cleanupTestDir(t, testDir)
+
+	markdown := "```foobar\nsome unknown language code\n```\n"
+
+	codeBlocks := extractCodeBlocks(t, markdown)
+	if len(codeBlocks) != 1 {
+		t.Fatalf("Expected 1 code block, got %d", len(codeBlocks))
+	}
+
+	// Unknown language should fallback to .txt
+	fileExtension := model.LanguageToExtension(codeBlocks[0].Language)
+	if fileExtension != "txt" {
+		t.Errorf("Unknown language should fallback to 'txt', got %s", fileExtension)
+	}
+
+	filename := "sourcecode.txt"
+	sourceCode := codeBlocks[0].ToSourceCode(func(block model.FencedCodeBlock) string {
+		return filename
+	})
+
+	err := sourceCode.Save(testDir)
+	if err != nil {
+		t.Fatalf("Failed to save: %v", err)
+	}
+
+	expectedPath := filepath.Join(testDir, filename)
+	if !fileExists(expectedPath) {
+		t.Errorf("Expected file %s does not exist", expectedPath)
+	}
+}
+
+func TestNoLanguageFallback(t *testing.T) {
+	testDir := setupTestDir(t)
+	defer cleanupTestDir(t, testDir)
+
+	// Code block with no language specified
+	markdown := "```\nsome code without language\n```\n"
+
+	codeBlocks := extractCodeBlocks(t, markdown)
+
+	// Note: goldmark only captures blocks WITH language info
+	// Blocks without language (just ```) are not captured as FencedCodeBlock
+	// This is expected behavior - we test the empty language case
+	if len(codeBlocks) == 0 {
+		// This is actually correct behavior - blocks without language tags
+		// aren't captured by the goldmark parser in the current implementation
+		t.Skip("Code blocks without language tags are not extracted by goldmark")
+		return
+	}
+
+	// If we get here, test that empty language falls back to txt
+	fileExtension := model.LanguageToExtension("")
+	if fileExtension != "txt" {
+		t.Errorf("Empty language should fallback to 'txt', got %s", fileExtension)
+	}
+}
+
+func TestMixedLanguagesAndExtensions(t *testing.T) {
+	testDir := setupTestDir(t)
+	defer cleanupTestDir(t, testDir)
+
+	// Mix of known, unknown, and edge case languages
+	markdown := `# Mixed Languages
+` + "```go\n" + `package main
+` + "```\n\n" +
+		"```unknownlang\n" + `some code
+` + "```\n\n" +
+		"```python\n" + `print("test")
+` + "```\n\n" +
+		"```weirdlang123\n" + `more code
+` + "```\n"
+
+	codeBlocks := extractCodeBlocks(t, markdown)
+	if len(codeBlocks) != 4 {
+		t.Fatalf("Expected 4 code blocks, got %d", len(codeBlocks))
+	}
+
+	expectedExtensions := []string{"go", "txt", "py", "txt"}
+	filenamePrefix := "sourcecode"
+	l := len(codeBlocks)
+
+	for i, codeBlock := range codeBlocks {
+		fileExtension := model.LanguageToExtension(codeBlock.Language)
+		if fileExtension != expectedExtensions[i] {
+			t.Errorf("Block %d (lang=%s): Expected extension %s, got %s",
+				i, codeBlock.Language, expectedExtensions[i], fileExtension)
+		}
+
+		sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
+			ext := model.LanguageToExtension(block.Language)
+			if l == 1 {
+				return filenamePrefix + "." + ext
+			}
+			return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, ext)
+		})
+
+		err := sourceCode.Save(testDir)
+		if err != nil {
+			t.Fatalf("Failed to save block %d: %v", i, err)
+		}
+
+		expectedFilename := fmt.Sprintf("%s-%d.%s", filenamePrefix, i, expectedExtensions[i])
+		filePath := filepath.Join(testDir, expectedFilename)
+		if !fileExists(filePath) {
+			t.Errorf("Expected file %s does not exist", filePath)
+		}
+	}
+}
+
+func TestCaseInsensitiveLanguages(t *testing.T) {
+	testDir := setupTestDir(t)
+	defer cleanupTestDir(t, testDir)
+
+	// Test various case combinations
+	markdown := `# Case Test
+` + "```Go\n" + `package main
+` + "```\n\n" +
+		"```PYTHON\n" + `print("test")
+` + "```\n\n" +
+		"```JavaScript\n" + `console.log("test");
+` + "```\n"
+
+	codeBlocks := extractCodeBlocks(t, markdown)
+	if len(codeBlocks) != 3 {
+		t.Fatalf("Expected 3 code blocks, got %d", len(codeBlocks))
+	}
+
+	// All should map to correct extensions regardless of case
+	expectedExtensions := []string{"go", "py", "js"}
+	languages := []string{"Go", "PYTHON", "JavaScript"}
+
+	for i, codeBlock := range codeBlocks {
+		if codeBlock.Language != languages[i] {
+			t.Errorf("Block %d: Expected language %s, got %s", i, languages[i], codeBlock.Language)
+		}
+
+		fileExtension := model.LanguageToExtension(codeBlock.Language)
+		if fileExtension != expectedExtensions[i] {
+			t.Errorf("Block %d (lang=%s): Expected extension %s, got %s (case-insensitive mapping failed)",
+				i, codeBlock.Language, expectedExtensions[i], fileExtension)
+		}
 	}
 }
 

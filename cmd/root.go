@@ -106,12 +106,21 @@ var rootCmd = &cobra.Command{
 		})
 
 		l := len(codeBlocks)
+		userSpecifiedExtension := viper.GetString("extension") != "" // Check if user provided --extension
+
 		for i, codeBlock := range codeBlocks {
 			sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
+				// Determine extension: user override > language detection > default fallback
+				fileExtension := extension // Default
+				if !userSpecifiedExtension && block.Language != "" {
+					// Auto-detect extension from language
+					fileExtension = model.LanguageToExtension(block.Language)
+				}
+
 				if l == 1 {
-					return fmt.Sprintf("%s.%s", filenamePrefix, extension)
+					return fmt.Sprintf("%s.%s", filenamePrefix, fileExtension)
 				} else {
-					return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
+					return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, fileExtension)
 				}
 			})
 			sourceCode.Save(outputDirectory)
