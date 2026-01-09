@@ -1,6 +1,6 @@
 module github.com/spandigitial/codeblocks
 
-go 1.23.0
+go 1.25
 
 require (
 	github.com/spf13/cobra v1.7.0
