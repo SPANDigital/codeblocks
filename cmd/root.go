@@ -112,8 +112,8 @@ var rootCmd = &cobra.Command{
 			sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
 				// Determine extension: user override > language detection > default fallback
 				fileExtension := extension // Default
-				if !userSpecifiedExtension && block.Language != "" {
-					// Auto-detect extension from language
+				if !userSpecifiedExtension {
+					// Auto-detect extension from language (handles empty strings)
 					fileExtension = model.LanguageToExtension(block.Language)
 				}
 
@@ -123,7 +123,9 @@ var rootCmd = &cobra.Command{
 					return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, fileExtension)
 				}
 			})
-			sourceCode.Save(outputDirectory)
+			if err := sourceCode.Save(outputDirectory); err != nil {
+				return fmt.Errorf("failed to save %s: %w", sourceCode.Filename, err)
+			}
 		}
 
 		return nil

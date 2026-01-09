@@ -109,14 +109,14 @@ func main() { println("Hello") }
 		if l == 1 {
 			expectedFilename = filenamePrefix + "." + extension
 		} else {
-			expectedFilename = filenamePrefix + "-" + string(rune('0'+i)) + "." + extension
+			expectedFilename = fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
 		}
 
 		sourceCode := codeBlock.ToSourceCode(func(block model.FencedCodeBlock) string {
 			if l == 1 {
 				return filenamePrefix + "." + extension
 			}
-			return filenamePrefix + "-" + string(rune('0'+i)) + "." + extension
+			return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
 		})
 
 		if sourceCode.Filename != expectedFilename {
@@ -183,7 +183,7 @@ More text
 			if l == 1 {
 				return filenamePrefix + "." + extension
 			}
-			return filenamePrefix + "-" + string(rune('0'+i)) + "." + extension
+			return fmt.Sprintf("%s-%d.%s", filenamePrefix, i, extension)
 		})
 
 		if sourceCode.Filename != expectedFiles[i] {

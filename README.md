@@ -90,15 +90,11 @@ By default, `codeblocks` automatically detects the programming language from fen
 
 ### Automatic Detection
 
-```bash
-# Input markdown with different languages
-$ cat example.md
+**Input markdown** (`example.md`):
+````markdown
 ```go
 package main
-
-func main() {
-    println("Hello from Go!")
-}
+func main() { println("Hello from Go!") }
 ```
 
 ```python
@@ -111,8 +107,10 @@ function greet() {
     console.log("Hello from JavaScript!");
 }
 ```
+````
 
-# Extract with auto-detected extensions
+**Extract with auto-detected extensions:**
+```bash
 $ codeblocks -i example.md
 Saving file: sourcecode-0.go in /current/directory
 Saving file: sourcecode-1.py in /current/directory
@@ -153,14 +151,15 @@ This is useful when:
 
 Code blocks with unknown or missing language identifiers automatically fallback to `.txt`:
 
-```bash
-# Markdown with unknown language
-$ cat example.md
+**Input markdown** (`example.md`):
+````markdown
 ```unknownlang
 some code in an unrecognized language
 ```
+````
 
-# Output uses .txt fallback
+**Output:**
+```bash
 $ codeblocks -i example.md
 Saving file: sourcecode.txt
 ```
